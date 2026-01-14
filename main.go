@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/k0kubun/pp"
 )
 
 type TasksList struct {
@@ -17,7 +18,7 @@ type TasksList struct {
 }
 
 type ListEditing interface {
-	Add(Task) (string, error)
+	Add(Task)
 	// Delete(int)
 }
 
@@ -35,11 +36,23 @@ type Task struct {
 	UpdatedAt   string
 }
 
-func (t TasksList) Add(task Task) {
-	pp.Println(t)
+func (t *Task) Update(s string) {
+	t.Description = s
+}
+
+func (t *TasksList) Add(task Task) {
 	t.List = append(t.List, task)
-	fmt.Println("T AFTER LIST: ")
-	pp.Println(t)
+}
+
+func helpText() {
+	fmt.Println(`Выберете команду из списка ниже:
+1. add "[description of task]"
+2. update [id] "[description of task]"
+2. list // all tasks
+3. list done
+4. list todo
+5. list in-progress
+`)
 }
 
 func main() {
@@ -52,37 +65,79 @@ func main() {
 	}
 	file.Close()
 
-	fmt.Println(`Вас приветствует таск-менеджер.
-Выберете команду из списка ниже:
-1. add [description of task]
-2. list // all tasks
-3. list done
-4. list todo
-5. list in-progress
-`)
-	scanCommand := bufio.NewScanner(os.Stdin)
+	fmt.Println("Вас приветствует таск-менеджер.")
+	helpText()
 
-	scanCommand.Scan()
+	for {
+		scanCommand := bufio.NewScanner(os.Stdin)
 
-	inputCommand := scanCommand.Text()
+		scanCommand.Scan()
 
-	splitCommand := strings.Split(inputCommand, " ")
+		inputCommand := scanCommand.Text()
 
-	fmt.Print(splitCommand[1])
+		splitCommand := strings.Split(inputCommand, " ")
 
-	tasks.Add(Task{
-		ID:          uuid.New(),
-		Description: string(splitCommand[1]),
-		Status:      "todo",
-		CreatedAt:   time.Now().Format("2006-01-02 15:04:05"),
-		UpdatedAt:   time.Now().Format("2006-01-02 15:04:05"),
-	})
-	// if inputCommand == "add"
-	// if inputCommand == "list" && len(sliceWithTasks) != 0 {
-	// 	for i, v := range sliceWithTasks {
-	// 		fmt.Print(i, v)
-	// 	}
-	// } else {
-	// 	fmt.Print("There are no tasks")
-	// }
+		keyWord := splitCommand[0]
+
+		switch keyWord {
+		case "add":
+			re := regexp.MustCompile(`^(\w*)\s"(.+)"$`)
+			matches := re.FindStringSubmatch(inputCommand)
+			if len(matches) == 0 {
+				fmt.Println("Что-то пошло не так. Напишите /help для показа всех доступных команд.")
+				break
+			}
+			tasks.Add(Task{
+				ID:          uuid.New(),
+				Description: string(matches[2]),
+				Status:      "todo",
+				CreatedAt:   time.Now().Format("2006-01-02 15:04:05"),
+				UpdatedAt:   time.Now().Format("2006-01-02 15:04:05"),
+			})
+			fmt.Println("Задача успешно добавлена!")
+		case "list":
+			if len(tasks.List) == 0 {
+				fmt.Println("Список задач пуст!")
+				helpText()
+				break
+			}
+			fmt.Println("Список всех доступных задач: ")
+			for i, v := range tasks.List {
+				fmt.Printf("%d. %s \n", i+1, v.Description)
+			}
+		case "update":
+			if len(tasks.List) == 0 {
+				fmt.Println("Список задач пуст!")
+				helpText()
+				break
+			}
+
+			re := regexp.MustCompile(`^(\w*)\s(\d+)\s"(.+)"$`)
+			matches := re.FindStringSubmatch(inputCommand)
+
+			if len(matches) == 0 {
+				fmt.Println("Что-то пошло не так. Напишите /help для показа всех доступных команд.")
+				break
+			}
+
+			id, err := strconv.Atoi(matches[2])
+
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			fmt.Println("ID: ", id, "LEN ", len(tasks.List))
+
+			if id > len(tasks.List) {
+				fmt.Println("Нет задачи с таким ID. Напишите /help для показа всех доступных команд.")
+				break
+			}
+
+		case "/help":
+			helpText()
+		default:
+			fmt.Println("Нет такой команды. Весь список - /help")
+		}
+	}
+
 }
