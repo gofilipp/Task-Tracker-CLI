@@ -41,6 +41,7 @@ type Task struct {
 
 func (t *Task) Update(s string) {
 	t.Description = s
+	t.UpdatedAt = time.Now().Format("2006-01-02 15:04:05")
 }
 
 func (t *Task) MarkInProgress() {
@@ -299,15 +300,14 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
-			_, err = file.Seek(0, io.SeekStart)
-			if err != nil {
+			if _, err = file.Seek(0, io.SeekStart); err != nil {
 				log.Fatal(err)
 			}
 
-			err = file.Truncate(0)
-			if err != nil {
+			if err = file.Truncate(0); err != nil {
 				log.Fatal(err)
 			}
+
 			file.Write(listToBytes)
 			return
 		default:
